@@ -3,7 +3,6 @@ import gears.async.default.given
 import asynchttp.*
 import anthropic.*
 import pprint.pprintln
-import anthropic.Streaming.Event
 
 @main def hello(): Unit =
   Async.blocking:
