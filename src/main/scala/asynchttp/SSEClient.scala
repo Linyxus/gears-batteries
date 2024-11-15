@@ -17,9 +17,30 @@ object SSEClient:
 
   case class Event(kind: String, data: String)
 
+  type Res = Either[Failure, Event]
+
   class Response(private val chan: Channel[Shard], private val fut: Future[Unit]):
+    import Failure.*
     private var _statusCode: Int | Null = null
     private var _buffer: String = ""
+
+    enum ParseResult:
+      case NotEnough
+      case Invalid
+      case Ok(event: Event)
+
+    def parse(): ParseResult =
+      var lines = _buffer.linesWithSeparators.toList
+      lines = lines.map(_.stripLeading).filter(_.nonEmpty)
+      lines match
+        case event :: data :: rest if data.endsWith("\n") || data.endsWith("\r") =>
+          val eventHeader = "event:"
+          val dataHeader = "data:"
+          if event.startsWith(eventHeader) && data.startsWith(dataHeader) then
+            _buffer = rest.mkString
+            ParseResult.Ok(Event(event.drop(eventHeader.length).strip, data.drop(dataHeader.length).strip))
+          else ParseResult.Invalid
+        case _ => ParseResult.NotEnough
 
     def statusCode()(using Async): Int =
       if _statusCode != null then _statusCode.nn
@@ -43,19 +64,19 @@ object SSEClient:
 
     def isOk()(using Async): Boolean = statusCode().toString.charAt(0) == '2'
 
-    def next()(using Async): Option[Event] =
-      if !isOk() then None
-      else if _buffer.nonEmpty then
-        val res = _buffer
-        _buffer = ""
-        Some(Event("test", res))
-      else chan.read() match
-        case Left(exc) =>
-          None
-        case Right(Shard.StatusCode(code)) =>
-          None
-        case Right(Shard.Data(data)) =>
-          Some(Event("test", data))
+    def next()(using Async): Res =
+      if !isOk() then Left(BadStatusCode(_statusCode.nn))
+      else parse() match
+        case ParseResult.Ok(event) => Right(event)
+        case ParseResult.Invalid => Left(ParsingError(_buffer))
+        case ParseResult.NotEnough =>
+          chan.read() match
+            case Left(_) => Left(Closed)
+            case Right(Shard.StatusCode(_)) =>
+              Left(Closed)
+            case Right(Shard.Data(data)) =>
+              _buffer += data
+              next()
 
   def post(url: String, headers: Seq[(String, String)], data: RequestBlob)(using Async.Spawn): Response =
     val chan = BufferedChannel[Shard]()
