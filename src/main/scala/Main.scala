@@ -1,36 +1,28 @@
 import gears.async.*
 import gears.async.default.given
-import util.boundary
 import asynchttp.*
-
-
-val ANTHROPIC_HEADERS = Seq(
-  "x-api-key" -> Secrets.API_KEY,
-  "anthropic-version" -> "2023-06-01",
-)
-
-def askClaudeStreaming(msg: String)(using Async.Spawn): SSEClient.Response =
-  SSEClient.post(
-    "https://api.anthropic.com/v1/messages",
-    headers = ANTHROPIC_HEADERS,
-    data = ujson.Obj(
-      "model" -> "claude-3-5-sonnet-20241022",
-      "max_tokens" -> 1024,
-      "messages" -> ujson.Arr(
-        ujson.Obj("role" -> "user", "content" -> msg)
-      ),
-      "stream" -> true,
-    )
-  )
+import anthropic.*
+import pprint.pprintln
+import anthropic.Streaming.Event
 
 @main def hello(): Unit =
   Async.blocking:
-    val resp = askClaudeStreaming("Write two poems about async programming, each wrapped in a code block")
-    println(resp.statusCode())
+    val client = Client(Secrets.API_KEY)
+    val resp = client.ask(
+      List(
+        UserMessage("How to turn Scala into a theorem proving language like Lean 4?"),
+        AssistantMessage("Definitely. I'm going to make a detailed plan, starting from the theory to practice:"),
+      ),
+      maxTokens = 2048,
+    )
     def go(): Unit =
       resp.next() match
-        case Left(err) => println(err)
+        case Left(err) =>
+          println()
+          pprintln(err)
         case Right(event) =>
-          println(event)
+          event match
+            case Event.ContentBlockDelta(text) => print(text)
+            case _ =>
           go()
     go()

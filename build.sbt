@@ -11,5 +11,6 @@ lazy val root = project
     libraryDependencies += "ch.epfl.lamp" %% "gears" % "0.2.0",
     libraryDependencies += "com.lihaoyi" %% "requests" % "0.9.0",
     libraryDependencies += "com.lihaoyi" %% "upickle" % "4.0.2",
+    libraryDependencies += "com.lihaoyi" %% "pprint" % "0.9.0",
     libraryDependencies += "org.scalameta" %% "munit" % "1.0.0" % Test
   )
