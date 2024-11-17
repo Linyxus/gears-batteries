@@ -71,8 +71,11 @@ object SSEClient:
         case ParseResult.Invalid => Left(ParsingError(_buffer))
         case ParseResult.NotEnough =>
           chan.read() match
-            case Left(_) => Left(Closed)
+            case Left(_) =>
+              cancel()
+              Left(Closed)
             case Right(Shard.StatusCode(_)) =>
+              cancel()
               Left(Closed)
             case Right(Shard.Data(data)) =>
               _buffer += data
