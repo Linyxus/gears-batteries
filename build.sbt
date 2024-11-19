@@ -12,5 +12,6 @@ lazy val root = project
     libraryDependencies += "com.lihaoyi" %% "requests" % "0.9.0",
     libraryDependencies += "com.lihaoyi" %% "upickle" % "4.0.2",
     libraryDependencies += "com.lihaoyi" %% "pprint" % "0.9.0",
+    libraryDependencies += "org.jline" % "jline" % "3.27.1",
     libraryDependencies += "org.scalameta" %% "munit" % "1.0.0" % Test
   )

@@ -1,28 +1,48 @@
+import pprint.pprintln
+import util.boundary
+
 import gears.async.*
 import gears.async.default.given
-import asynchttp.*
-import anthropic.*
-import pprint.pprintln
-import Streaming.Event
 
-@main def hello(): Unit =
-  Async.blocking:
-    val client = Client(Secrets.API_KEY)
-    val resp = client.ask(
-      List(
-        UserMessage("How to turn Scala into a theorem proving language like Lean 4?"),
-        AssistantMessage("Definitely. I'm going to make a detailed plan, starting from the theory to practice:"),
-      ),
-      maxTokens = 2048,
-    )
-    def go(): Unit =
-      resp.next() match
-        case Left(err) =>
-          println()
-          pprintln(err)
-        case Right(event) =>
-          event match
-            case Event.ContentBlockDelta(text) => print(text)
-            case _ =>
-          go()
-    go()
+import anthropic.*
+import Streaming.Event
+import asynchttp.SSEClient.Failure
+
+import org.jline.reader.{LineReader, LineReaderBuilder, EndOfFileException, UserInterruptException}
+import org.jline.terminal.{Terminal, TerminalBuilder}
+
+@main def repl(): Unit =
+  val terminal: Terminal = TerminalBuilder.builder().system(true).build()
+  val reader: LineReader =
+    LineReaderBuilder.builder().terminal(terminal).build()
+
+  println("Claude greets you.")
+  val client = Client(Secrets.API_KEY)
+  var history: List[Message] = List()
+
+  // the REPL loop
+  while true do
+    val input = reader.readLine("user> ")
+    //println(s"Input: $input")
+    history = history.appended(UserMessage(input))
+    //println(s"ASKING WITH $history")
+    Async.blocking:
+      val resp = client.ask(
+        history,
+        maxTokens = 2048,
+      )
+      var response: String = ""
+      boundary:
+        while true do
+          resp.next() match
+            case Left(err) =>
+              //println(s"DONE: $err")
+              err match
+                case Failure.Closed => println()
+                case e => pprintln(e)
+              history = history.appended(AssistantMessage(response))
+              boundary.break()
+            case Right(Event.ContentBlockDelta(text)) =>
+              print(text)
+              response += text
+            case Right(_) =>
