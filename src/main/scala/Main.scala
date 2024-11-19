@@ -23,9 +23,7 @@ import org.jline.terminal.{Terminal, TerminalBuilder}
   // the REPL loop
   while true do
     val input = reader.readLine("user> ")
-    //println(s"Input: $input")
     history = history.appended(UserMessage(input))
-    //println(s"ASKING WITH $history")
     Async.blocking:
       val resp = client.ask(
         history,
@@ -36,7 +34,6 @@ import org.jline.terminal.{Terminal, TerminalBuilder}
         while true do
           resp.next() match
             case Left(err) =>
-              //println(s"DONE: $err")
               err match
                 case Failure.Closed => println()
                 case e => pprintln(e)
